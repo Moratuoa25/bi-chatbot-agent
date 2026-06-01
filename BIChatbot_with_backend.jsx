@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 
-const API_URL = "http://localhost:5000"; // your Flask backend
+const API_URL = "https://moratuoa25.pythonanywhere.com"; // your Flask backend
 
 const SAMPLE_QUESTIONS = [
   "Which month had the highest revenue in 2023?",
