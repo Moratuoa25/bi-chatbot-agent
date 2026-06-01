@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BI Agent — Nthinya Tech Solutions</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #07070f; font-family: 'Segoe UI', sans-serif; color: #e8e8f0; min-height: 100vh; display: flex; flex-direction: column; }
+#header { padding: 16px 20px; border-bottom: 1px solid rgba(255,255,255,.06); display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,.02); position: sticky; top: 0; z-index: 10; }
+#logo { width: 40px; height: 40px; border-radius: 10px; background: linear-gradient(135deg,#7b2ff7,#00e5ff); display: flex; align-items: center; justify-content: center; font-size: 18px; box-shadow: 0 0 20px rgba(123,47,247,.4); }
+#title { font-size: 15px; font-weight: 700; letter-spacing: 1px; }
+#status { font-size: 11px; color: #00e5ff; display: flex; align-items: center; gap: 5px; }
+#dot { width: 6px; height: 6px; border-radius: 50%; background: #00e5ff; display: inline-block; animation: pulse 2s infinite; }
+#messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+.msg { display: flex; gap: 10px; animation: fadeIn .3s ease; }
+.msg.user { flex-direction: row-reverse; }
+.avatar { width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+.avatar.bot { background: linear-gradient(135deg,#00e5ff,#7b2ff7); box-shadow: 0 0 10px rgba(0,229,255,.3); }
+.avatar.user { background: rgba(255,255,255,.1); }
+.bubble { max-width: 78%; padding: 12px 15px; border-radius: 18px; font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+.bubble.bot { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); border-radius: 18px 18px 18px 4px; }
+.bubble.user { background: linear-gradient(135deg,#7b2ff7,#00b4d8); border-radius: 18px 18px 4px 18px; }
+.sql-block { background: #0a0a0f; border: 1px solid rgba(0,229,255,.2); border-radius: 8px; padding: 10px 12px; font-family: monospace; font-size: 12px; color: #00e5ff; margin-top: 8px; overflow-x: auto; white-space: pre; }
+.sql-toggle { font-size: 10px; color: #00e5ff; cursor: pointer; background: rgba(0,229,255,.08); border: 1px solid rgba(0,229,255,.2); border-radius: 20px; padding: 3px 10px; margin-top: 6px; display: inline-block; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+th { background: rgba(123,47,247,.2); color: #b794f4; padding: 6px 10px; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
+td { padding: 5px 10px; border-bottom: 1px solid rgba(255,255,255,.04); color: #c4c4d4; }
+.typing { display: flex; gap: 5px; padding: 12px 15px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); border-radius: 18px 18px 18px 4px; }
+.typing span { width: 7px; height: 7px; border-radius: 50%; background: #00e5ff; animation: bounce 1.2s ease-in-out infinite; }
+.typing span:nth-child(2) { animation-delay: .2s; }
+.typing span:nth-child(3) { animation-delay: .4s; }
+#samples { padding: 0 20px 14px; display: flex; flex-wrap: wrap; gap: 8px; }
+.sample { padding: 6px 13px; border-radius: 20px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1); color: #c4c4d4; font-size: 12px; cursor: pointer; transition: all .2s; }
+.sample:hover { background: rgba(123,47,247,.15); border-color: rgba(123,47,247,.4); color: #b794f4; }
+#inputarea { padding: 14px 20px; border-top: 1px solid rgba(255,255,255,.06); background: rgba(255,255,255,.02); }
+#inputwrap { display: flex; gap: 10px; align-items: flex-end; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: 14px; padding: 10px 14px; }
+textarea { flex: 1; background: transparent; border: none; color: #e8e8f0; font-size: 14px; font-family: inherit; line-height: 1.5; resize: none; max-height: 100px; overflow-y: auto; }
+textarea:focus { outline: none; }
+#sendbtn { width: 34px; height: 34px; border-radius: 9px; border: none; background: linear-gradient(135deg,#7b2ff7,#00b4d8); color: white; font-size: 16px; cursor: pointer; flex-shrink: 0; transition: all .2s; box-shadow: 0 0 14px rgba(123,47,247,.4); }
+#sendbtn:disabled { background: rgba(255,255,255,.06); box-shadow: none; cursor: not-allowed; }
+#footer { text-align: center; font-size: 10px; color: rgba(255,255,255,.2); margin-top: 8px; letter-spacing: 1px; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+@keyframes bounce { 0%,80%,100%{transform:translateY(0);opacity:.4} 40%{transform:translateY(-5px);opacity:1} }
+@keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div id="logo">⚡</div>
+  <div>
+    <div id="title">BI AGENT — NTHINYA TECH</div>
+    <div id="status"><span id="dot"></span> <span id="statustext">Connecting...</span></div>
+  </div>
+</div>
+
+<div id="messages">
+  <div class="msg">
+    <div class="avatar bot">⚡</div>
+    <div class="bubble bot">Hey! I'm your BI Agent 🚀
+
+Ask me anything about your business data in plain English — I'll write the SQL, run it against a real database, and explain the results clearly.
+
+Try one of the questions below!</div>
+  </div>
+</div>
+
+<div id="samples">
+  <div class="sample" onclick="ask(this.innerText)">Which month had the highest revenue?</div>
+  <div class="sample" onclick="ask(this.innerText)">Top 3 product categories by sales?</div>
+  <div class="sample" onclick="ask(this.innerText)">Compare revenue across regions</div>
+  <div class="sample" onclick="ask(this.innerText)">Which category has the best margin?</div>
+</div>
+
+<div id="inputarea">
+  <div id="inputwrap">
+    <textarea id="input" rows="1" placeholder="Ask anything about your data..."></textarea>
+    <button id="sendbtn" onclick="sendMsg()" disabled>➤</button>
+  </div>
+  <div id="footer">REAL SQL · REAL DATA · NTHINYA TECH SOLUTIONS</div>
+</div>
+
+<script>
+const API = "https://moratuoa25.pythonanywhere.com";
+let history = [];
+let loading = false;
+let samplesShown = true;
+
+// Check backend health
+fetch(API + "/health")
+  .then(r => r.json())
+  .then(() => { document.getElementById("statustext").innerText = "Live Database Connected"; document.getElementById("dot").style.background = "#00e5ff"; })
+  .catch(() => { document.getElementById("statustext").innerText = "Connecting..."; document.getElementById("dot").style.background = "#ffd700"; });
+
+document.getElementById("input").addEventListener("input", function() {
+  document.getElementById("sendbtn").disabled = !this.value.trim() || loading;
+  this.style.height = "auto";
+  this.style.height = Math.min(this.scrollHeight, 100) + "px";
+});
+
+document.getElementById("input").addEventListener("keydown", function(e) {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMsg(); }
+});
+
+function ask(q) {
+  document.getElementById("input").value = q;
+  document.getElementById("sendbtn").disabled = false;
+  sendMsg();
+}
+
+function addMsg(role, content, sql, data) {
+  if (samplesShown) {
+    document.getElementById("samples").style.display = "none";
+    samplesShown = false;
+  }
+  const msgs = document.getElementById("messages");
+  const wrap = document.createElement("div");
+  wrap.className = "msg " + role;
+
+  const avatar = document.createElement("div");
+  avatar.className = "avatar " + role;
+  avatar.innerText = role === "bot" ? "⚡" : "👤";
+
+  const bubble = document.createElement("div");
+  bubble.className = "bubble " + role;
+  bubble.innerText = content;
+
+  if (sql) {
+    const toggle = document.createElement("div");
+    toggle.className = "sql-toggle";
+    toggle.innerText = "▼ VIEW SQL";
+    const sqlBlock = document.createElement("div");
+    sqlBlock.className = "sql-block";
+    sqlBlock.style.display = "none";
+    sqlBlock.innerText = sql;
+    toggle.onclick = () => {
+      const shown = sqlBlock.style.display !== "none";
+      sqlBlock.style.display = shown ? "none" : "block";
+      toggle.innerText = shown ? "▼ VIEW SQL" : "▲ HIDE SQL";
+    };
+    bubble.appendChild(toggle);
+    bubble.appendChild(sqlBlock);
+  }
+
+  if (data && data.rows && data.rows.length) {
+    const table = document.createElement("table");
+    const thead = document.createElement("thead");
+    const tr = document.createElement("tr");
+    data.columns.forEach(col => {
+      const th = document.createElement("th");
+      th.innerText = col;
+      tr.appendChild(th);
+    });
+    thead.appendChild(tr);
+    table.appendChild(thead);
+    const tbody = document.createElement("tbody");
+    data.rows.slice(0, 10).forEach(row => {
+      const tr2 = document.createElement("tr");
+      row.forEach(cell => {
+        const td = document.createElement("td");
+        td.innerText = typeof cell === "number" ? cell.toLocaleString() : cell;
+        tr2.appendChild(td);
+      });
+      tbody.appendChild(tr2);
+    });
+    table.appendChild(tbody);
+    bubble.appendChild(table);
+  }
+
+  wrap.appendChild(avatar);
+  wrap.appendChild(bubble);
+  msgs.appendChild(wrap);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function showTyping() {
+  const msgs = document.getElementById("messages");
+  const wrap = document.createElement("div");
+  wrap.className = "msg";
+  wrap.id = "typing";
+  const avatar = document.createElement("div");
+  avatar.className = "avatar bot";
+  avatar.innerText = "⚡";
+  const typing = document.createElement("div");
+  typing.className = "typing";
+  typing.innerHTML = "<span></span><span></span><span></span>";
+  wrap.appendChild(avatar);
+  wrap.appendChild(typing);
+  msgs.appendChild(wrap);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function removeTyping() {
+  const t = document.getElementById("typing");
+  if (t) t.remove();
+}
+
+async function sendMsg() {
+  const input = document.getElementById("input");
+  const text = input.value.trim();
+  if (!text || loading) return;
+
+  loading = true;
+  document.getElementById("sendbtn").disabled = true;
+  input.value = "";
+  input.style.height = "auto";
+
+  addMsg("user", text);
+  history.push({ role: "user", content: text });
+  showTyping();
+
+  try {
+    const res = await fetch(API + "/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text, history: history })
+    });
+    const data = await res.json();
+    removeTyping();
+    const reply = data.reply || data.error || "Sorry, something went wrong.";
+    addMsg("bot", reply, data.sql, data.data);
+    history.push({ role: "assistant", content: reply });
+  } catch(e) {
+    removeTyping();
+    addMsg("bot", "⚠️ Connection error. Please try again.");
+  }
+
+  loading = false;
+  document.getElementById("sendbtn").disabled = false;
+}
+</script>
+</body>
+</html>
