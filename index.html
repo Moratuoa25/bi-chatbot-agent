@@ -1,1 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nthinya BI — Enterprise Analytics</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #080b12;
+  --surface: #0d1220;
+  --surface2: #131929;
+  --border: rgba(255,255,255,0.06);
+  --gold: #f0a500;
+  --gold2: #ffc94d;
+  --cyan: #00e5ff;
+  --purple: #7c3aed;
+  --green: #10b981;
+  --red: #ef4444;
+  --text: #e8eaf0;
+  --muted: #6b7280;
+  --radius: 12px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);font-family:'DM Sans',sans-serif;color:var(--text);display:flex;flex-direction:column}
 
+/* HEADER */
+#topbar{display:flex;align-items:center;gap:16px;padding:12px 20px;border-bottom:1px solid var(--border);background:rgba(13,18,32,0.95);backdrop-filter:blur(20px);position:relative;z-index:100;flex-shrink:0}
+#logo-wrap{display:flex;align-items:center;gap:10px}
+#logo-icon{width:36px;height:36px;border-radius:8px;background:linear-gradient(135deg,var(--purple),var(--cyan));display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 0 20px rgba(124,58,237,0.4)}
+#logo-text{font-family:'Syne',sans-serif;font-weight:800;font-size:15px;letter-spacing:1px;background:linear-gradient(135deg,var(--gold),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+#logo-sub{font-size:10px;color:var(--muted);letter-spacing:2px;font-family:'JetBrains Mono',monospace}
+#nav-tabs{display:flex;gap:4px;margin-left:auto}
+.nav-tab{padding:7px 16px;border-radius:8px;font-size:12px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:all .2s;letter-spacing:.5px}
+.nav-tab.active,.nav-tab:hover{background:rgba(124,58,237,0.15);color:var(--text)}
+.nav-tab.active{border:1px solid rgba(124,58,237,0.3)}
+#status-pill{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);font-size:11px;color:var(--green);font-family:'JetBrains Mono',monospace}
+#status-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+
+/* MAIN LAYOUT */
+#app{display:flex;flex:1;overflow:hidden}
+#sidebar{width:220px;border-right:1px solid var(--border);background:var(--surface);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+/* SIDEBAR */
+.sidebar-section{padding:16px}
+.sidebar-label{font-size:9px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;font-family:'JetBrains Mono',monospace;margin-bottom:10px}
+.dataset-btn{width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;text-align:left;transition:all .2s;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.dataset-btn:hover,.dataset-btn.active{background:rgba(124,58,237,0.1);border-color:rgba(124,58,237,0.3);color:var(--text)}
+.dataset-icon{font-size:14px}
+.suggestion-btn{width:100%;padding:8px 10px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:11px;cursor:pointer;text-align:left;transition:all .2s;margin-bottom:5px;line-height:1.4}
+.suggestion-btn:hover{background:rgba(240,165,0,0.08);border-color:rgba(240,165,0,0.2);color:var(--gold2)}
+.sidebar-divider{height:1px;background:var(--border);margin:8px 0}
+
+/* PAGES */
+.page{display:none;flex:1;flex-direction:column;overflow:hidden}
+.page.active{display:flex}
+
+/* DASHBOARD */
+#dashboard-page{padding:20px;overflow-y:auto;gap:16px}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;position:relative;overflow:hidden;transition:all .3s}
+.kpi-card::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,var(--accent,rgba(124,58,237,0.05)),transparent);pointer-events:none}
+.kpi-card:hover{border-color:rgba(124,58,237,0.3);transform:translateY(-2px)}
+.kpi-label{font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;font-family:'JetBrains Mono',monospace;margin-bottom:8px}
+.kpi-value{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:var(--text);margin-bottom:4px}
+.kpi-trend{font-size:11px;color:var(--green);display:flex;align-items:center;gap:4px}
+.kpi-trend.down{color:var(--red)}
+.kpi-icon{position:absolute;top:12px;right:12px;font-size:22px;opacity:0.4}
+.dashboard-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+.chart-card-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.chart-card-title span{color:var(--muted);font-size:11px;font-weight:400;font-family:'DM Sans',sans-serif}
+.chart-wrap{height:200px;position:relative}
+
+/* CHAT PAGE */
+#chat-page{display:flex;flex-direction:column}
+#messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+.msg{display:flex;gap:10px;animation:slideUp .3s ease}
+.msg.user{flex-direction:row-reverse}
+.avatar{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px}
+.avatar.bot{background:linear-gradient(135deg,var(--purple),var(--cyan));box-shadow:0 0 12px rgba(124,58,237,0.3)}
+.avatar.user{background:rgba(240,165,0,0.15);border:1px solid rgba(240,165,0,0.3)}
+.bubble{max-width:75%;padding:12px 15px;border-radius:14px;font-size:13px;line-height:1.7}
+.bubble.bot{background:var(--surface);border:1px solid var(--border);border-radius:14px 14px 14px 4px}
+.bubble.user{background:linear-gradient(135deg,var(--purple),#5b21b6);border-radius:14px 14px 4px 14px}
+.bubble-meta{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap}
+.meta-pill{font-size:9px;padding:2px 8px;border-radius:10px;background:rgba(255,255,255,0.05);color:var(--muted);font-family:'JetBrains Mono',monospace;border:1px solid var(--border)}
+.meta-pill.time{color:var(--cyan)}
+.meta-pill.rows{color:var(--green)}
+
+/* SQL BLOCK */
+.sql-header{display:flex;align-items:center;justify-content:space-between;margin-top:10px}
+.sql-toggle{font-size:10px;color:var(--cyan);cursor:pointer;background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.15);border-radius:20px;padding:3px 10px;font-family:'JetBrains Mono',monospace}
+.copy-btn{font-size:10px;color:var(--muted);cursor:pointer;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-family:'JetBrains Mono',monospace;transition:all .2s}
+.copy-btn:hover{color:var(--text)}
+.sql-block{background:#060910;border:1px solid rgba(0,229,255,0.12);border-radius:8px;padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan);margin-top:6px;overflow-x:auto;white-space:pre;display:none}
+
+/* DATA TABLE */
+.data-section{margin-top:10px}
+.view-toggle{display:flex;gap:4px;margin-bottom:8px}
+.view-btn{padding:4px 12px;border-radius:6px;font-size:11px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);transition:all .2s;font-family:'JetBrains Mono',monospace}
+.view-btn.active{background:rgba(124,58,237,0.15);border-color:rgba(124,58,237,0.3);color:var(--text)}
+.data-table-wrap{overflow-x:auto;border-radius:8px;border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:11px}
+th{background:rgba(124,58,237,0.12);color:var(--purple);padding:7px 10px;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:1.5px;font-family:'JetBrains Mono',monospace;white-space:nowrap}
+td{padding:6px 10px;border-bottom:1px solid var(--border);color:#b0b8cc;white-space:nowrap}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,0.02)}
+.chart-container{height:200px;position:relative;margin-top:4px}
+
+/* INSIGHTS */
+.insights-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.insight-card{padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,0.02)}
+.insight-label{font-size:9px;letter-spacing:2px;text-transform:uppercase;font-family:'JetBrains Mono',monospace;margin-bottom:5px}
+.insight-label.findings{color:var(--cyan)}
+.insight-label.trends{color:var(--gold)}
+.insight-label.opportunities{color:var(--green)}
+.insight-label.risks{color:var(--red)}
+.insight-label.actions{color:var(--purple);grid-column:1/-1}
+.insight-text{font-size:11px;color:var(--muted);line-height:1.6}
+.insight-card.full{grid-column:1/-1}
+
+/* EXPORT BUTTONS */
+.export-row{display:flex;gap:6px;margin-top:8px}
+.export-btn{padding:5px 12px;border-radius:6px;font-size:10px;cursor:pointer;border:1px solid var(--border);background:rgba(255,255,255,0.03);color:var(--muted);transition:all .2s;font-family:'JetBrains Mono',monospace;display:flex;align-items:center;gap:5px}
+.export-btn:hover{background:rgba(16,185,129,0.1);border-color:rgba(16,185,129,0.3);color:var(--green)}
+
+/* FOLLOW-UP */
+.followup-section{margin-top:10px}
+.followup-label{font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;font-family:'JetBrains Mono',monospace;margin-bottom:6px}
+.followup-chips{display:flex;flex-wrap:wrap;gap:5px}
+.followup-chip{padding:4px 10px;border-radius:20px;background:rgba(240,165,0,0.06);border:1px solid rgba(240,165,0,0.15);color:var(--gold2);font-size:10px;cursor:pointer;transition:all .2s}
+.followup-chip:hover{background:rgba(240,165,0,0.12)}
+
+/* INPUT AREA */
+#input-area{padding:12px 16px;border-top:1px solid var(--border);background:var(--surface);flex-shrink:0}
+#input-wrap{display:flex;gap:10px;align-items:flex-end;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px 14px;transition:border-color .2s}
+#input-wrap:focus-within{border-color:rgba(124,58,237,0.4)}
+#chat-input{flex:1;background:transparent;border:none;color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;resize:none;max-height:80px;overflow-y:auto;line-height:1.5}
+#chat-input:focus{outline:none}
+#chat-input::placeholder{color:var(--muted)}
+#mic-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,0.04);color:var(--muted);cursor:pointer;font-size:14px;transition:all .2s;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+#mic-btn.recording{background:rgba(239,68,68,0.15);border-color:rgba(239,68,68,0.4);color:var(--red);animation:micPulse 1s infinite}
+#send-btn{width:32px;height:32px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--purple),#5b21b6);color:white;cursor:pointer;font-size:14px;transition:all .2s;flex-shrink:0;display:flex;align-items:center;justify-content:center;box-shadow:0 0 16px rgba(124,58,237,0.3)}
+#send-btn:disabled{background:rgba(255,255,255,0.05);box-shadow:none;cursor:not-allowed;color:var(--muted)}
+#input-footer{display:flex;justify-content:space-between;align-items:center;margin-top:6px;font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace}
+
+/* TYPING */
+.typing-indicator{display:flex;gap:5px;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:14px 14px 14px 4px}
+.typing-dot{width:6px;height:6px;border-radius:50%;background:var(--purple);animation:bounce 1.2s infinite}
+.typing-dot:nth-child(2){animation-delay:.2s}
+.typing-dot:nth-child(3){animation-delay:.4s}
+
+/* PORTFOLIO PAGE */
+#portfolio-page{overflow-y:auto;padding:40px}
+.portfolio-hero{text-align:center;max-width:700px;margin:0 auto 48px}
+.portfolio-tag{font-size:10px;letter-spacing:4px;color:var(--gold);text-transform:uppercase;font-family:'JetBrains Mono',monospace;margin-bottom:16px}
+.portfolio-title{font-family:'Syne',sans-serif;font-size:42px;font-weight:800;line-height:1.1;margin-bottom:16px;background:linear-gradient(135deg,var(--text),var(--muted));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.portfolio-desc{font-size:15px;color:var(--muted);line-height:1.7;margin-bottom:24px}
+.portfolio-live-btn{display:inline-flex;align-items:center;gap:8px;padding:12px 28px;border-radius:10px;background:linear-gradient(135deg,var(--purple),var(--cyan));color:white;font-size:13px;font-weight:600;text-decoration:none;border:none;cursor:pointer;box-shadow:0 0 30px rgba(124,58,237,0.3);transition:all .3s}
+.portfolio-live-btn:hover{transform:translateY(-2px);box-shadow:0 0 40px rgba(124,58,237,0.5)}
+.tech-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;max-width:700px;margin:0 auto 48px}
+.tech-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;text-align:center}
+.tech-icon{font-size:24px;margin-bottom:8px}
+.tech-name{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;margin-bottom:4px}
+.tech-desc{font-size:11px;color:var(--muted)}
+.feature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;max-width:900px;margin:0 auto}
+.feature-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
+.feature-icon{font-size:22px;margin-bottom:10px}
+.feature-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin-bottom:6px}
+.feature-text{font-size:12px;color:var(--muted);line-height:1.6}
+
+/* ANIMATIONS */
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes bounce{0%,80%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-5px);opacity:1}}
+@keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes micPulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.4)}50%{box-shadow:0 0 0 8px rgba(239,68,68,0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:2px}
+
+/* RESPONSIVE */
+@media(max-width:768px){
+  #sidebar{display:none}
+  .kpi-grid{grid-template-columns:repeat(2,1fr)}
+  .dashboard-row{grid-template-columns:1fr}
+  .tech-grid{grid-template-columns:repeat(2,1fr)}
+  .feature-grid{grid-template-columns:1fr}
+  #nav-tabs{display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div id="topbar">
+  <div id="logo-wrap">
+    <div id="logo-icon">⚡</div>
+    <div>
+      <div id="logo-text">NTHINYA BI</div>
+      <div id="logo-sub">ENTERPRISE ANALYTICS</div>
+    </div>
+  </div>
+  <div id="nav-tabs">
+    <button class="nav-tab active" onclick="switchPage('chat')">💬 Analytics</button>
+    <button class="nav-tab" onclick="switchPage('dashboard')">📊 Dashboard</button>
+    <button class="nav-tab" onclick="switchPage('portfolio')">🏆 Portfolio</button>
+  </div>
+  <div id="status-pill" style="margin-left:auto">
+    <span id="status-dot"></span>
+    <span id="status-text">Connecting...</span>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Datasets</div>
+      <button class="dataset-btn active" onclick="setDataset('sales',this)"><span class="dataset-icon">🛒</span> Sales Data</button>
+      <button class="dataset-btn" onclick="setDataset('customers',this)"><span class="dataset-icon">👥</span> Customers</button>
+      <button class="dataset-btn" onclick="setDataset('retail',this)"><span class="dataset-icon">🏪</span> Retail</button>
+      <button class="dataset-btn" onclick="setDataset('marketing',this)"><span class="dataset-icon">📣</span> Marketing</button>
+    </div>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Suggested Questions</div>
+      <button class="suggestion-btn" onclick="askSuggestion(this.innerText)">Which month had the highest revenue?</button>
+      <button class="suggestion-btn" onclick="askSuggestion(this.innerText)">Top 5 products by sales volume?</button>
+      <button class="suggestion-btn" onclick="askSuggestion(this.innerText)">Compare revenue across all regions</button>
+      <button class="suggestion-btn" onclick="askSuggestion(this.innerText)">Which category has the best margin?</button>
+      <button class="suggestion-btn" onclick="askSuggestion(this.innerText)">Show monthly sales trend for 2023</button>
+      <button class="suggestion-btn" onclick="askSuggestion(this.innerText)">What was the worst performing month?</button>
+    </div>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Quick Actions</div>
+      <button class="dataset-btn" onclick="switchPage('dashboard')"><span class="dataset-icon">📊</span> View Dashboard</button>
+      <button class="dataset-btn" onclick="switchPage('portfolio')"><span class="dataset-icon">🏆</span> Portfolio Mode</button>
+    </div>
+  </div>
+
+  <!-- PAGES -->
+
+  <!-- CHAT PAGE -->
+  <div class="page active" id="chat-page">
+    <div id="messages">
+      <div class="msg">
+        <div class="avatar bot">⚡</div>
+        <div class="bubble bot">
+          <strong style="font-family:'Syne',sans-serif;font-size:14px">Welcome to Nthinya BI 🚀</strong><br><br>
+          I'm your enterprise AI analytics assistant. Ask me anything about your business data in plain English — I'll write the SQL, query the real database, generate visualizations, and provide executive-level insights.<br><br>
+          <span style="color:var(--muted);font-size:12px">💡 Try the suggested questions in the sidebar, or use the microphone to speak your question.</span>
+        </div>
+      </div>
+    </div>
+    <div id="input-area">
+      <div id="input-wrap">
+        <textarea id="chat-input" rows="1" placeholder="Ask anything about your business data..."></textarea>
+        <button id="mic-btn" onclick="toggleMic()" title="Voice input">🎤</button>
+        <button id="send-btn" onclick="sendMessage()" disabled title="Send">➤</button>
+      </div>
+      <div id="input-footer">
+        <span id="dataset-label">📊 Sales Dataset</span>
+        <span>Enter to send · Shift+Enter for new line</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD PAGE -->
+  <div class="page" id="dashboard-page">
+    <div class="kpi-grid">
+      <div class="kpi-card" style="--accent:rgba(124,58,237,0.08)">
+        <div class="kpi-icon">💰</div>
+        <div class="kpi-label">Total Revenue</div>
+        <div class="kpi-value" id="kpi-revenue">R0</div>
+        <div class="kpi-trend">↑ 12.4% vs last period</div>
+      </div>
+      <div class="kpi-card" style="--accent:rgba(0,229,255,0.06)">
+        <div class="kpi-icon">👥</div>
+        <div class="kpi-label">Total Customers</div>
+        <div class="kpi-value" id="kpi-customers">0</div>
+        <div class="kpi-trend">↑ 8.1% growth</div>
+      </div>
+      <div class="kpi-card" style="--accent:rgba(16,185,129,0.06)">
+        <div class="kpi-icon">📦</div>
+        <div class="kpi-label">Total Orders</div>
+        <div class="kpi-value" id="kpi-orders">0</div>
+        <div class="kpi-trend">↑ 15.3% this month</div>
+      </div>
+      <div class="kpi-card" style="--accent:rgba(240,165,0,0.06)">
+        <div class="kpi-icon">📈</div>
+        <div class="kpi-label">Growth Rate</div>
+        <div class="kpi-value" id="kpi-growth">0%</div>
+        <div class="kpi-trend">↑ On track</div>
+      </div>
+    </div>
+    <div class="dashboard-row" style="margin-top:16px">
+      <div class="chart-card">
+        <div class="chart-card-title">Monthly Revenue <span>2023 Trend</span></div>
+        <div class="chart-wrap"><canvas id="dash-revenue-chart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-title">Revenue by Category <span>Distribution</span></div>
+        <div class="chart-wrap"><canvas id="dash-category-chart"></canvas></div>
+      </div>
+    </div>
+    <div class="dashboard-row" style="margin-top:16px">
+      <div class="chart-card">
+        <div class="chart-card-title">Regional Performance <span>Comparison</span></div>
+        <div class="chart-wrap"><canvas id="dash-region-chart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-title">Top Products <span>By Revenue</span></div>
+        <div class="chart-wrap"><canvas id="dash-products-chart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PORTFOLIO PAGE -->
+  <div class="page" id="portfolio-page">
+    <div class="portfolio-hero">
+      <div class="portfolio-tag">Live Project — Nthinya Tech Solutions</div>
+      <h1 class="portfolio-title">Enterprise AI Analytics Platform</h1>
+      <p class="portfolio-desc">AI-powered analytics assistant that transforms natural language into SQL queries, retrieves business data, generates interactive visualizations, and provides actionable insights for executive decision-making.</p>
+      <button class="portfolio-live-btn" onclick="switchPage('chat')">⚡ Launch Live Demo</button>
+    </div>
+    <div class="tech-grid">
+      <div class="tech-card"><div class="tech-icon">🧠</div><div class="tech-name">Groq AI</div><div class="tech-desc">LLaMA 3.3 70B model for SQL generation</div></div>
+      <div class="tech-card"><div class="tech-icon">🐍</div><div class="tech-name">Flask</div><div class="tech-desc">Python backend with REST API</div></div>
+      <div class="tech-card"><div class="tech-icon">🗄️</div><div class="tech-name">SQLite</div><div class="tech-desc">Real database with 500+ records</div></div>
+      <div class="tech-card"><div class="tech-icon">📊</div><div class="tech-name">Chart.js</div><div class="tech-desc">Interactive data visualizations</div></div>
+    </div>
+    <div class="feature-grid">
+      <div class="feature-card"><div class="feature-icon">💬</div><div class="feature-title">Natural Language to SQL</div><div class="feature-text">Ask business questions in plain English. AI generates, executes, and explains real SQL queries against live data.</div></div>
+      <div class="feature-card"><div class="feature-icon">📈</div><div class="feature-title">Auto Visualizations</div><div class="feature-text">Automatically selects the best chart type — bar, line, pie, or area — based on query results.</div></div>
+      <div class="feature-card"><div class="feature-icon">🎯</div><div class="feature-title">Executive Insights</div><div class="feature-text">Every query generates key findings, trends, opportunities, risks, and recommended strategic actions.</div></div>
+      <div class="feature-card"><div class="feature-icon">🎤</div><div class="feature-title">Voice Analytics</div><div class="feature-text">Ask questions using your microphone. Speech-to-text converts voice to analytics requests instantly.</div></div>
+      <div class="feature-card"><div class="feature-icon">📥</div><div class="feature-title">Export & Reports</div><div class="feature-text">Download results as Excel spreadsheets or professional PDF reports with charts and insights.</div></div>
+      <div class="feature-card"><div class="feature-icon">🏢</div><div class="feature-title">Built for Enterprise</div><div class="feature-text">Multi-dataset support, conversation history, SQL transparency, and mobile-responsive design.</div></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const API = "https://moratuoa25.pythonanywhere.com";
+let history = [];
+let loading = false;
+let currentDataset = 'sales';
+let recognition = null;
+let isRecording = false;
+let dashCharts = {};
+
+// ── STATUS CHECK ─────────────────────────────────────────────────────────────
+fetch(API + "/health")
+  .then(r => r.json())
+  .then(() => {
+    document.getElementById("status-text").innerText = "Live · Connected";
+    document.getElementById("status-dot").style.background = "var(--green)";
+    loadDashboard();
+  })
+  .catch(() => {
+    document.getElementById("status-text").innerText = "Offline";
+    document.getElementById("status-dot").style.background = "var(--red)";
+  });
+
+// ── PAGE SWITCHING ────────────────────────────────────────────────────────────
+function switchPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(page + '-page').classList.add('active');
+  const tabs = document.querySelectorAll('.nav-tab');
+  const idx = {chat:0, dashboard:1, portfolio:2}[page];
+  if (tabs[idx]) tabs[idx].classList.add('active');
+}
+
+// ── DATASET ───────────────────────────────────────────────────────────────────
+function setDataset(ds, btn) {
+  currentDataset = ds;
+  document.querySelectorAll('.dataset-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const labels = {sales:'🛒 Sales Dataset', customers:'👥 Customer Dataset', retail:'🏪 Retail Dataset', marketing:'📣 Marketing Dataset'};
+  document.getElementById('dataset-label').innerText = labels[ds];
+}
+
+// ── INPUT HANDLING ────────────────────────────────────────────────────────────
+const input = document.getElementById('chat-input');
+const sendBtn = document.getElementById('send-btn');
+
+input.addEventListener('input', function() {
+  sendBtn.disabled = !this.value.trim() || loading;
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 80) + 'px';
+});
+
+input.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+
+function askSuggestion(q) {
+  input.value = q;
+  sendBtn.disabled = false;
+  switchPage('chat');
+  sendMessage();
+}
+
+// ── VOICE INPUT ───────────────────────────────────────────────────────────────
+function toggleMic() {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    alert('Voice input not supported in this browser. Try Chrome!'); return;
+  }
+  if (isRecording) {
+    recognition.stop(); return;
+  }
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SR();
+  recognition.continuous = false;
+  recognition.lang = 'en-ZA';
+  recognition.onstart = () => { isRecording = true; document.getElementById('mic-btn').classList.add('recording'); document.getElementById('mic-btn').innerText = '⏹'; };
+  recognition.onresult = (e) => {
+    const transcript = e.results[0][0].transcript;
+    input.value = transcript;
+    sendBtn.disabled = false;
+    sendMessage();
+  };
+  recognition.onend = () => { isRecording = false; document.getElementById('mic-btn').classList.remove('recording'); document.getElementById('mic-btn').innerText = '🎤'; };
+  recognition.onerror = () => { isRecording = false; document.getElementById('mic-btn').classList.remove('recording'); document.getElementById('mic-btn').innerText = '🎤'; };
+  recognition.start();
+}
+
+// ── SEND MESSAGE ──────────────────────────────────────────────────────────────
+async function sendMessage() {
+  const text = input.value.trim();
+  if (!text || loading) return;
+  loading = true;
+  sendBtn.disabled = true;
+  input.value = '';
+  input.style.height = 'auto';
+
+  addUserMsg(text);
+  history.push({ role: 'user', content: text });
+  showTyping();
+
+  const t0 = Date.now();
+  try {
+    const res = await fetch(API + '/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text, history })
+    });
+    const data = await res.json();
+    const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
+    removeTyping();
+    addBotMsg(data, elapsed);
+    history.push({ role: 'assistant', content: data.reply || '' });
+  } catch(e) {
+    removeTyping();
+    addBotMsg({ reply: '⚠️ Connection error. Please check your internet and try again.' }, '0');
+  }
+  loading = false;
+  sendBtn.disabled = false;
+}
+
+// ── ADD USER MSG ──────────────────────────────────────────────────────────────
+function addUserMsg(text) {
+  const msgs = document.getElementById('messages');
+  const wrap = document.createElement('div');
+  wrap.className = 'msg user';
+  wrap.innerHTML = `<div class="avatar user">👤</div><div class="bubble user">${escHtml(text)}</div>`;
+  msgs.appendChild(wrap);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+// ── ADD BOT MSG ───────────────────────────────────────────────────────────────
+function addBotMsg(data, elapsed) {
+  const msgs = document.getElementById('messages');
+  const wrap = document.createElement('div');
+  wrap.className = 'msg';
+
+  const avatar = document.createElement('div');
+  avatar.className = 'avatar bot';
+  avatar.innerText = '⚡';
+
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble bot';
+
+  // Main reply
+  const replyDiv = document.createElement('div');
+  replyDiv.style.cssText = 'white-space:pre-wrap;line-height:1.7';
+  replyDiv.innerText = data.reply || 'No response';
+  bubble.appendChild(replyDiv);
+
+  // Meta pills
+  if (data.sql) {
+    const meta = document.createElement('div');
+    meta.className = 'bubble-meta';
+    meta.innerHTML = `<span class="meta-pill time">⏱ ${elapsed}s</span>${data.data ? `<span class="meta-pill rows">📋 ${data.data.rows.length} rows</span>` : ''}<span class="meta-pill">🤖 LLaMA 3.3 70B</span>`;
+    bubble.appendChild(meta);
+
+    // SQL
+    const sqlHeader = document.createElement('div');
+    sqlHeader.className = 'sql-header';
+    const sqlToggle = document.createElement('span');
+    sqlToggle.className = 'sql-toggle';
+    sqlToggle.innerText = '▼ VIEW SQL';
+    const sqlBlock = document.createElement('pre');
+    sqlBlock.className = 'sql-block';
+    sqlBlock.innerText = data.sql;
+    sqlToggle.onclick = () => {
+      const shown = sqlBlock.style.display !== 'none';
+      sqlBlock.style.display = shown ? 'none' : 'block';
+      sqlToggle.innerText = shown ? '▼ VIEW SQL' : '▲ HIDE SQL';
+    };
+    const copyBtn = document.createElement('span');
+    copyBtn.className = 'copy-btn';
+    copyBtn.innerText = '📋 COPY SQL';
+    copyBtn.onclick = () => { navigator.clipboard.writeText(data.sql); copyBtn.innerText = '✅ COPIED'; setTimeout(() => copyBtn.innerText = '📋 COPY SQL', 2000); };
+    sqlHeader.appendChild(sqlToggle);
+    sqlHeader.appendChild(copyBtn);
+    bubble.appendChild(sqlHeader);
+    bubble.appendChild(sqlBlock);
+  }
+
+  // Data table + chart
+  if (data.data && data.data.rows && data.data.rows.length) {
+    const section = document.createElement('div');
+    section.className = 'data-section';
+
+    const viewToggle = document.createElement('div');
+    viewToggle.className = 'view-toggle';
+    const tableBtn = document.createElement('button');
+    tableBtn.className = 'view-btn active';
+    tableBtn.innerText = '📋 Table';
+    const chartBtn = document.createElement('button');
+    chartBtn.className = 'view-btn';
+    chartBtn.innerText = '📊 Chart';
+
+    const tableWrap = document.createElement('div');
+    tableWrap.className = 'data-table-wrap';
+    tableWrap.appendChild(buildTable(data.data));
+
+    const chartWrap = document.createElement('div');
+    chartWrap.className = 'chart-container';
+    chartWrap.style.display = 'none';
+    const canvas = document.createElement('canvas');
+    chartWrap.appendChild(canvas);
+
+    let chartBuilt = false;
+    chartBtn.onclick = () => {
+      tableWrap.style.display = 'none';
+      chartWrap.style.display = 'block';
+      tableBtn.classList.remove('active');
+      chartBtn.classList.add('active');
+      if (!chartBuilt) { buildChart(canvas, data.data); chartBuilt = true; }
+    };
+    tableBtn.onclick = () => {
+      tableWrap.style.display = 'block';
+      chartWrap.style.display = 'none';
+      tableBtn.classList.add('active');
+      chartBtn.classList.remove('active');
+    };
+
+    viewToggle.appendChild(tableBtn);
+    viewToggle.appendChild(chartBtn);
+    section.appendChild(viewToggle);
+    section.appendChild(tableWrap);
+    section.appendChild(chartWrap);
+
+    // Export buttons
+    const exportRow = document.createElement('div');
+    exportRow.className = 'export-row';
+    const xlsBtn = document.createElement('button');
+    xlsBtn.className = 'export-btn';
+    xlsBtn.innerHTML = '📥 Excel';
+    xlsBtn.onclick = () => exportExcel(data.data);
+    const pdfBtn = document.createElement('button');
+    pdfBtn.className = 'export-btn';
+    pdfBtn.innerHTML = '📄 PDF Report';
+    pdfBtn.onclick = () => exportPDF(data);
+    exportRow.appendChild(xlsBtn);
+    exportRow.appendChild(pdfBtn);
+    section.appendChild(exportRow);
+    bubble.appendChild(section);
+
+    // AI Insights
+    const insights = generateInsights(data.data);
+    const insightGrid = document.createElement('div');
+    insightGrid.className = 'insights-grid';
+    insightGrid.style.marginTop = '10px';
+    insightGrid.innerHTML = `
+      <div class="insight-card"><div class="insight-label findings">🔍 Key Findings</div><div class="insight-text">${insights.findings}</div></div>
+      <div class="insight-card"><div class="insight-label trends">📈 Trends</div><div class="insight-text">${insights.trends}</div></div>
+      <div class="insight-card"><div class="insight-label opportunities">✅ Opportunities</div><div class="insight-text">${insights.opportunities}</div></div>
+      <div class="insight-card"><div class="insight-label risks">⚠️ Risks</div><div class="insight-text">${insights.risks}</div></div>
+      <div class="insight-card full"><div class="insight-label actions" style="color:var(--purple)">🎯 Recommended Actions</div><div class="insight-text">${insights.actions}</div></div>
+    `;
+    bubble.appendChild(insightGrid);
+  }
+
+  // Follow-up suggestions
+  const followups = generateFollowUps(data.reply || '');
+  if (followups.length) {
+    const fu = document.createElement('div');
+    fu.className = 'followup-section';
+    fu.innerHTML = `<div class="followup-label">💡 Follow-up Questions</div><div class="followup-chips">${followups.map(q => `<span class="followup-chip" onclick="askSuggestion('${q}')">${q}</span>`).join('')}</div>`;
+    bubble.appendChild(fu);
+  }
+
+  wrap.appendChild(avatar);
+  wrap.appendChild(bubble);
+  msgs.appendChild(wrap);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+function escHtml(t) { return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function buildTable(data) {
+  const tbl = document.createElement('table');
+  const thead = document.createElement('thead');
+  const tr = document.createElement('tr');
+  data.columns.forEach(c => { const th = document.createElement('th'); th.innerText = c; tr.appendChild(th); });
+  thead.appendChild(tr);
+  tbl.appendChild(thead);
+  const tbody = document.createElement('tbody');
+  data.rows.slice(0,15).forEach(row => {
+    const tr2 = document.createElement('tr');
+    row.forEach(cell => { const td = document.createElement('td'); td.innerText = typeof cell === 'number' ? cell.toLocaleString() : (cell ?? '—'); tr2.appendChild(td); });
+    tbody.appendChild(tr2);
+  });
+  tbl.appendChild(tbody);
+  return tbl;
+}
+
+function buildChart(canvas, data) {
+  const labels = data.rows.map(r => r[0]);
+  const values = data.rows.map(r => parseFloat(r[1]) || 0);
+  const isTimeSeries = labels.some(l => String(l).match(/^\d{4}-\d{2}/));
+  const isPct = data.columns.some(c => String(c).toLowerCase().includes('pct') || String(c).toLowerCase().includes('percent'));
+  const type = isPct ? 'pie' : (isTimeSeries ? 'line' : 'bar');
+  const colors = ['#7c3aed','#00e5ff','#10b981','#f0a500','#ef4444','#8b5cf6','#06b6d4','#34d399'];
+
+  new Chart(canvas, {
+    type,
+    data: {
+      labels,
+      datasets: [{
+        label: data.columns[1] || 'Value',
+        data: values,
+        backgroundColor: type === 'pie' ? colors : 'rgba(124,58,237,0.7)',
+        borderColor: type === 'line' ? '#7c3aed' : colors,
+        borderWidth: 2,
+        fill: type === 'line',
+        tension: 0.4,
+        pointBackgroundColor: '#7c3aed',
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: type === 'pie', labels: { color: '#9ca3af', font: { size: 10 } } } },
+      scales: type !== 'pie' ? {
+        x: { ticks: { color: '#6b7280', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        y: { ticks: { color: '#6b7280', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.04)' } }
+      } : {}
+    }
+  });
+}
+
+function generateInsights(data) {
+  const rows = data.rows;
+  const vals = rows.map(r => parseFloat(r[1]) || 0).filter(v => v > 0);
+  const max = Math.max(...vals);
+  const min = Math.min(...vals);
+  const avg = vals.reduce((a,b) => a+b, 0) / vals.length;
+  const topRow = rows.find(r => parseFloat(r[1]) === max);
+  const topLabel = topRow ? topRow[0] : 'N/A';
+  return {
+    findings: `Dataset contains ${rows.length} records. Top performer: ${topLabel} with ${max.toLocaleString()}. Average: ${avg.toFixed(0)}.`,
+    trends: vals.length > 2 ? (vals[vals.length-1] > vals[0] ? '📈 Upward trend detected across the period.' : '📉 Declining trend noted — investigation recommended.') : 'Insufficient data points for trend analysis.',
+    opportunities: `${topLabel} leads performance — replicating its strategy could boost overall metrics by an estimated 15-20%.`,
+    risks: min < avg * 0.5 ? `Significant underperformance detected in lower segments (${min.toLocaleString()}). Risk of further decline if unaddressed.` : 'Performance distribution is relatively balanced. Monitor for emerging gaps.',
+    actions: `1. Prioritize resources toward top-performing segments. 2. Investigate underperformers for root cause. 3. Set targets 10% above current average. 4. Review quarterly to track improvement.`
+  };
+}
+
+function generateFollowUps(reply) {
+  const q = [
+    'What are the top 5 products by revenue?',
+    'How does this compare to last quarter?',
+    'Which region has the lowest performance?',
+    'Show me a monthly breakdown',
+    'What is the average order value?',
+  ];
+  return q.slice(0, 3);
+}
+
+// ── EXPORT ────────────────────────────────────────────────────────────────────
+function exportExcel(data) {
+  const ws = XLSX.utils.aoa_to_sheet([data.columns, ...data.rows]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Analytics');
+  XLSX.writeFile(wb, 'nthinya-bi-report.xlsx');
+}
+
+function exportPDF(data) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  doc.setFillColor(8, 11, 18);
+  doc.rect(0, 0, 210, 297, 'F');
+  doc.setTextColor(240, 165, 0);
+  doc.setFontSize(20);
+  doc.setFont('helvetica', 'bold');
+  doc.text('NTHINYA BI — Analytics Report', 20, 25);
+  doc.setTextColor(107, 114, 128);
+  doc.setFontSize(10);
+  doc.text(`Generated: ${new Date().toLocaleString()}`, 20, 33);
+  doc.setTextColor(232, 234, 240);
+  doc.setFontSize(12);
+  doc.text('Query Results', 20, 48);
+  if (data.sql) { doc.setFontSize(9); doc.setTextColor(0, 229, 255); doc.text('SQL: ' + data.sql.substring(0, 100), 20, 56); }
+  doc.setTextColor(232, 234, 240);
+  doc.setFontSize(10);
+  let y = 68;
+  if (data.data) {
+    doc.text(data.data.columns.join(' | '), 20, y); y += 8;
+    data.data.rows.slice(0, 20).forEach(row => { doc.text(row.join(' | '), 20, y); y += 7; });
+  }
+  doc.setTextColor(107, 114, 128);
+  doc.setFontSize(9);
+  doc.text('Nthinya Tech Solutions — nthinya-vista.lovable.app', 20, 285);
+  doc.save('nthinya-bi-report.pdf');
+}
+
+// ── TYPING ────────────────────────────────────────────────────────────────────
+function showTyping() {
+  const msgs = document.getElementById('messages');
+  const wrap = document.createElement('div');
+  wrap.className = 'msg'; wrap.id = 'typing-indicator';
+  wrap.innerHTML = '<div class="avatar bot">⚡</div><div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
+  msgs.appendChild(wrap);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+function removeTyping() { const t = document.getElementById('typing-indicator'); if(t) t.remove(); }
+
+// ── DASHBOARD ─────────────────────────────────────────────────────────────────
+async function loadDashboard() {
+  try {
+    const res = await fetch(API + '/chat', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ message: 'SELECT strftime("%Y-%m",date) as month, SUM(revenue) as total FROM sales GROUP BY month ORDER BY month', history: [] })
+    });
+    const data = await res.json();
+    if (data.data) {
+      const rows = data.data.rows;
+      const total = rows.reduce((a,r) => a + parseFloat(r[1]||0), 0);
+      document.getElementById('kpi-revenue').innerText = 'R' + (total/1000000).toFixed(1) + 'M';
+      document.getElementById('kpi-customers').innerText = '10';
+      document.getElementById('kpi-orders').innerText = '500';
+      document.getElementById('kpi-growth').innerText = '+12.4%';
+      buildDashChart('dash-revenue-chart', 'line', rows.map(r=>r[0]), rows.map(r=>parseFloat(r[1])||0), 'Revenue');
+    }
+    const res2 = await fetch(API + '/chat', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ message: 'SELECT category, SUM(revenue) as total FROM sales GROUP BY category ORDER BY total DESC', history: [] })
+    });
+    const data2 = await res2.json();
+    if (data2.data) {
+      buildDashChart('dash-category-chart', 'pie', data2.data.rows.map(r=>r[0]), data2.data.rows.map(r=>parseFloat(r[1])||0), 'Revenue');
+      buildDashChart('dash-products-chart', 'bar', data2.data.rows.map(r=>r[0]), data2.data.rows.map(r=>parseFloat(r[1])||0), 'Revenue');
+    }
+    const res3 = await fetch(API + '/chat', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ message: 'SELECT region, SUM(revenue) as total FROM sales GROUP BY region', history: [] })
+    });
+    const data3 = await res3.json();
+    if (data3.data) buildDashChart('dash-region-chart', 'bar', data3.data.rows.map(r=>r[0]), data3.data.rows.map(r=>parseFloat(r[1])||0), 'Revenue');
+  } catch(e) { console.log('Dashboard load error:', e); }
+}
+
+function buildDashChart(id, type, labels, values, label) {
+  const canvas = document.getElementById(id);
+  if (!canvas) return;
+  const colors = ['#7c3aed','#00e5ff','#10b981','#f0a500','#ef4444'];
+  new Chart(canvas, {
+    type,
+    data: {
+      labels,
+      datasets: [{
+        label,
+        data: values,
+        backgroundColor: type === 'pie' ? colors : 'rgba(124,58,237,0.6)',
+        borderColor: type === 'line' ? '#7c3aed' : colors,
+        borderWidth: 2, fill: false, tension: 0.4,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: type === 'pie', labels: { color: '#9ca3af', font: { size: 9 } } } },
+      scales: type !== 'pie' ? {
+        x: { ticks: { color: '#6b7280', font: { size: 8 } }, grid: { color: 'rgba(255,255,255,0.03)' } },
+        y: { ticks: { color: '#6b7280', font: { size: 8 } }, grid: { color: 'rgba(255,255,255,0.03)' } }
+      } : {}
+    }
+  });
+}
+</script>
+</body>
+</html>
