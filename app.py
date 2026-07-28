@@ -1,3 +1,4 @@
+
 """
 BI Chatbot Agent - Backend
 Uses Groq (FREE) — database created automatically on startup
@@ -7,6 +8,7 @@ Run: python app.py
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import sqlite3
+import psycopg2
 import json
 import re
 import os
@@ -20,6 +22,18 @@ CORS(app)
 DB_PATH = "sales.db"
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 MODEL = "llama-3.3-70b-versatile"
+
+# ── Data source config ───────────────────────────────────────────────────────
+# "demo"          -> local SQLite demo data (unchanged default behavior)
+# "retail_sales"  -> live Supabase Postgres retail_sales table
+DATA_SOURCE = os.environ.get("DATA_SOURCE", "demo")
+SUPABASE_DB_URL = os.environ.get("SUPABASE_DB_URL")  # postgres connection string, direct DB access (not the REST URL)
+
+
+def get_postgres_connection():
+    if not SUPABASE_DB_URL:
+        raise RuntimeError("SUPABASE_DB_URL is not set but DATA_SOURCE=retail_sales.")
+    return psycopg2.connect(SUPABASE_DB_URL)
 
 # ── Auto-create database on startup ──────────────────────────────────────────
 
@@ -98,7 +112,7 @@ def create_database():
 
 # ── DB helpers ────────────────────────────────────────────────────────────────
 
-def get_schema():
+def get_schema_sqlite():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("SELECT name FROM sqlite_master WHERE type='table'")
@@ -113,12 +127,39 @@ def get_schema():
     return "\n".join(schema)
 
 
+def get_schema_retail_sales():
+    conn = get_postgres_connection()
+    c = conn.cursor()
+    c.execute("""
+        SELECT column_name, data_type
+        FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'retail_sales'
+        ORDER BY ordinal_position
+    """)
+    cols = c.fetchall()
+    conn.close()
+    # Quote every column name since they're capitalized / contain spaces
+    # (e.g. "Product Category", "Quantity", "Total Amount").
+    col_defs = ", ".join(f'"{name}" {dtype}' for name, dtype in cols)
+    return f"retail_sales({col_defs})"
+
+
+def get_schema():
+    if DATA_SOURCE == "retail_sales":
+        return get_schema_retail_sales()
+    return get_schema_sqlite()
+
+
 def run_query(sql: str):
     sql = sql.strip()
     if not sql.upper().startswith("SELECT"):
         return None, "Only SELECT queries are allowed."
+
     try:
-        conn = sqlite3.connect(DB_PATH)
+        if DATA_SOURCE == "retail_sales":
+            conn = get_postgres_connection()
+        else:
+            conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         c.execute(sql)
         rows = c.fetchall()
@@ -139,6 +180,32 @@ def extract_sql(text: str):
 
 def build_system_prompt():
     schema = get_schema()
+
+    if DATA_SOURCE == "retail_sales":
+        return f"""You are a senior Business Intelligence AI Agent connected to a real
+PostgreSQL sales database (live Supabase data).
+
+DATABASE SCHEMA:
+{schema}
+
+YOUR JOB:
+1. Understand the user's business question
+2. Write a precise SQL query (in a ```sql code block)
+3. The system will run it and give you the results
+4. Explain results in plain business English — clear, concise, actionable
+5. Add 1-2 strategic insights or recommendations when relevant
+
+RULES:
+- Always write valid PostgreSQL SQL
+- Use only SELECT statements
+- Column names are capitalized and contain spaces — you MUST double-quote
+  them exactly as shown in the schema, e.g. "Product Category", "Total Amount"
+- For dates use PostgreSQL's to_char(column, 'YYYY-MM') for month grouping
+- Keep explanations friendly and non-technical
+- Format numbers with R for South African Rand
+- If results are empty, say so and suggest why
+"""
+
     return f"""You are a senior Business Intelligence AI Agent connected to a real SQLite sales database.
 
 DATABASE SCHEMA:
@@ -213,12 +280,19 @@ def schema():
 
 @app.route("/health", methods=["GET"])
 def health():
-    return jsonify({"status": "ok", "db": DB_PATH, "model": MODEL, "provider": "Groq (Free)"})
+    return jsonify({
+        "status": "ok",
+        "data_source": DATA_SOURCE,
+        "db": DB_PATH if DATA_SOURCE == "demo" else "retail_sales (Supabase Postgres)",
+        "model": MODEL,
+        "provider": "Groq (Free)",
+    })
 
 
 # ── Start ─────────────────────────────────────────────────────────────────────
 
-create_database()  # Auto-create DB on every startup
+if DATA_SOURCE == "demo":
+    create_database()  # Auto-create local demo DB only when it's actually in use
 
 if __name__ == "__main__":
     print("🚀 BI Agent running FREE on Groq!")
